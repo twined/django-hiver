@@ -8,10 +8,10 @@ setup(
     author_email='www.twined.net',
     packages=['hiver'],
     url='http://github.com/twined/hiver',
-    license='BSD licence, see LICENCE.txt',
+    license='Do what thou wilt.',
     description='A simple redis view cacher ' + \
                 'for Django.',
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     install_requires=[
         "Django >= 1.3.0",
     ],
