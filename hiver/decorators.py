@@ -9,6 +9,8 @@ from django.http import HttpResponse
 from django.utils import translation
 from django.utils.encoding import iri_to_uri
 
+from redis.exceptions import ConnectionError
+
 from .settings import HIVER_SETTINGS
 
 __all__ = ('cache_page',)
@@ -29,11 +31,22 @@ def cache_page(cache_duration, path):
     def cache_page_decorator(func):
         def wrapped(request, *args, **kwargs):
             if request_is_cacheable(request):
-                key = get_cache_key(request, path)
+                try:
+                    key = get_cache_key(request, path)
+                except ConnectionError:
+                    if HIVER_SETTINGS['debug']:
+                        raise
+                    return func(request, *args, **kwargs)
 
                 # checks if the key exists, and if it does, retrieves
                 # response from cache, sets ETag and return response
-                cached = cache.get(key)
+                try:
+                    cached = cache.get(key)
+                except ConnectionError:
+                    if HIVER_SETTINGS['debug']:
+                        raise
+                    return func(request, *args, **kwargs)
+
                 if cached is not None:
                     response = HttpResponse(cached)
                     response["ETag"] = key
@@ -46,7 +59,13 @@ def cache_page(cache_duration, path):
                     # we can. grabs the properly rendered content
                     # and sets the cache
                     content = get_content(response)
-                    cache.set(key, content, cache_duration)
+                    try:
+                        cache.set(key, content, timeout=cache_duration,
+                            version=get_cache_generation())
+                    except ConnectionError:
+                        if HIVER_SETTINGS['debug']:
+                            raise
+                        return func(request, *args, **kwargs)
 
                 # sets the response's ETag header to the key we made,
                 # and returns the response to client
@@ -80,7 +99,7 @@ def get_cache_generation():
     '''
     generation_number = cache.get(HIVER_SETTINGS['global_generation_id'])
     if not generation_number:
-        cache.set(HIVER_SETTINGS['global_generation_id'], 1)
+        cache.set(HIVER_SETTINGS['global_generation_id'], 1, 0)
         generation_number = 1
 
     return generation_number

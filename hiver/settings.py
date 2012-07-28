@@ -4,6 +4,7 @@ HIVER_SETTINGS = {
     'cache_duration': 15,
     'cache_prefix': 'hiver',
     'disabled': False,
+    'debug': False,
     'global_generation_id': 'hiver.gen',
 }
 
